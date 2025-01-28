@@ -12,6 +12,7 @@ import (
 
 func RunMigrations(db *sql.DB, cfg *config.Config) error {
     driver, err := mysql.WithInstance(db, &mysql.Config{})
+    
     if err != nil {
         return fmt.Errorf("could not create migration driver: %w", err)
     }
@@ -21,6 +22,7 @@ func RunMigrations(db *sql.DB, cfg *config.Config) error {
         "mysql", 
         driver,
     )
+
     if err != nil {
         return fmt.Errorf("could not create migrate instance: %w", err)
     }

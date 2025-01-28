@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "net/http"
     "financial-service/internal/services"
+    "github.com/rs/zerolog/log"
 )
 
 type TransactionHandler struct {
@@ -29,6 +30,9 @@ func (h *TransactionHandler) Credit(w http.ResponseWriter, r *http.Request) {
     }
 
     tx, err := h.service.Credit(r.Context(), req.UserID, req.Amount)
+
+    log.Printf("Transaction: %+v", tx)
+
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -46,6 +50,9 @@ func (h *TransactionHandler) Debit(w http.ResponseWriter, r *http.Request) {
     }
 
     tx, err := h.service.Debit(r.Context(), req.UserID, req.Amount)
+
+    log.Printf("Transaction: %+v", tx)
+    
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -69,6 +76,9 @@ func (h *TransactionHandler) Transfer(w http.ResponseWriter, r *http.Request) {
     }
 
     tx, err := h.service.Transfer(r.Context(), req.FromUserID, req.ToUserID, req.Amount)
+
+    log.Printf("Transaction: %+v", tx)
+
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

@@ -16,6 +16,7 @@ type Balance struct {
 func (b *Balance) GetAmount() float64 {
     b.mu.RLock()
     defer b.mu.RUnlock()
+
     return b.Amount
 }
 
@@ -36,10 +37,13 @@ func (b *Balance) AddAmount(amount float64) {
 func (b *Balance) SubtractAmount(amount float64) error {
     b.mu.Lock()
     defer b.mu.Unlock()
+
     if b.Amount < amount {
         return errors.New("insufficient balance")
     }
+
     b.Amount -= amount
     b.LastUpdatedAt = time.Now()
+    
     return nil
 } 

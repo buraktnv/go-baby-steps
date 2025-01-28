@@ -24,9 +24,11 @@ func main() {
 
     // Initialize DB
     database, err := db.NewDB(cfg)
+    
     if err != nil {
         log.Fatal().Err(err).Msg("Failed to connect to database")
     }
+
     defer database.Close()
 
     // Run migrations
@@ -82,6 +84,7 @@ func main() {
 
     // Graceful shutdown
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
     defer cancel()
     if err := srv.Shutdown(ctx); err != nil {
         log.Fatal().Err(err).Msg("Server forced to shutdown")

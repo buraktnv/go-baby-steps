@@ -6,6 +6,7 @@ import (
     "time"
     "financial-service/internal/models"
     "financial-service/internal/repository"
+    "fmt"
 )
 
 type UserService struct {
@@ -57,6 +58,7 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
         Amount:        0,
         LastUpdatedAt: time.Now(),
     }
+
     if err := s.balanceRepo.CreateBalance(ctx, balance); err != nil {
         return nil, err
     }
@@ -67,6 +69,7 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 // AuthenticateUser verifies user credentials and returns a user if valid
 func (s *UserService) AuthenticateUser(ctx context.Context, email, password string) (*models.User, error) {
     user, err := s.userRepo.GetByEmail(ctx, email)
+
     if err != nil {
         return nil, errors.New("invalid credentials")
     }
@@ -78,11 +81,12 @@ func (s *UserService) AuthenticateUser(ctx context.Context, email, password stri
     return user, nil
 }
 
-// HasPermission checks if user has required role
-func (s *UserService) HasPermission(ctx context.Context, userID uint, requiredRole models.Role) bool {
-    user, err := s.userRepo.GetByID(ctx, userID)
+func (s *UserService) LoginUser(ctx context.Context, email, password string) (string, error) {
+    user, err := s.AuthenticateUser(ctx, email, password)
+
     if err != nil {
-        return false
+        return "", err
     }
-    return user.Role == requiredRole || user.Role == models.RoleAdmin
-} 
+
+    return fmt.Sprintf(`{"email": "%s", "id": %d}`, user.Email, user.ID), nil
+}

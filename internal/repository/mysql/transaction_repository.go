@@ -42,6 +42,7 @@ func (r *TransactionRepository) Create(ctx context.Context, tx *models.Transacti
     }
 
     tx.ID = uint(id)
+
     return nil
 }
 
@@ -66,6 +67,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id uint) (*models.T
     if err != nil {
         return nil, err
     }
+
     return tx, nil
 }
 

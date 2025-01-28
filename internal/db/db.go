@@ -49,6 +49,7 @@ func MigrateDB(db *sql.DB, cfg *config.Config) error {
         "mysql", 
         driver,
     )
+    
     if err != nil {
         return fmt.Errorf("could not create migrate instance: %w", err)
     }

@@ -5,6 +5,7 @@ import (
     "database/sql"
     "financial-service/internal/models"
     "financial-service/internal/repository"
+    "github.com/rs/zerolog/log"
 )
 
 type BalanceRepository struct {
@@ -17,6 +18,7 @@ func NewBalanceRepository(db *sql.DB) *BalanceRepository {
 
 func (r *BalanceRepository) GetBalance(ctx context.Context, userID uint) (*models.Balance, error) {
     balance := &models.Balance{}
+    
     query := `
         SELECT user_id, amount, last_updated_at
         FROM balances WHERE user_id = ?
@@ -26,12 +28,17 @@ func (r *BalanceRepository) GetBalance(ctx context.Context, userID uint) (*model
         &balance.Amount,
         &balance.LastUpdatedAt,
     )
+
     if err == sql.ErrNoRows {
         return nil, repository.ErrNotFound
     }
+
     if err != nil {
         return nil, err
     }
+
+    log.Printf("Balance: %+v", balance)
+
     return balance, nil
 }
 
@@ -46,17 +53,21 @@ func (r *BalanceRepository) UpdateBalance(ctx context.Context, balance *models.B
         balance.LastUpdatedAt,
         balance.UserID,
     )
+
     if err != nil {
         return err
     }
 
     rows, err := result.RowsAffected()
+
     if err != nil {
         return err
     }
+
     if rows == 0 {
         return repository.ErrNotFound
     }
+
     return nil
 }
 
@@ -70,5 +81,6 @@ func (r *BalanceRepository) CreateBalance(ctx context.Context, balance *models.B
         balance.Amount,
         balance.LastUpdatedAt,
     )
+
     return err
 } 

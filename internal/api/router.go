@@ -23,6 +23,8 @@ func NewRouter(
         // User routes
         r.Route("/users", func(r chi.Router) {
             r.Post("/register", userHandler.Register)
+            r.Post("/login", userHandler.Login)
+
             // Add other user routes as needed
         })
 
@@ -34,8 +36,8 @@ func NewRouter(
         })
 
         // Balance routes
-        r.Route("/balances", func(r chi.Router) {
-            r.Get("/{id}", balanceHandler.GetBalance)
+        r.Route("/balance", func(r chi.Router) {
+            r.Get("/{user_id}", balanceHandler.GetBalance)
         })
     })
 

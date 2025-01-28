@@ -33,31 +33,33 @@ type Transaction struct {
 func (t *Transaction) SetStatus(status TransactionStatus) {
     t.mu.Lock()
     defer t.mu.Unlock()
+
     t.Status = status
 }
 
 func (t *Transaction) GetStatus() TransactionStatus {
     t.mu.RLock()
     defer t.mu.RUnlock()
+
     return t.Status
 }
 
 func (t *Transaction) Validate() error {
     switch t.Type {
-    case TransactionTypeCredit:
-        if t.ToUserID == 0 {
-            return errors.New("to_user_id is required for credit transactions")
-        }
-    case TransactionTypeDebit:
-        if t.FromUserID == 0 {
-            return errors.New("from_user_id is required for debit transactions")
-        }
-    case TransactionTypeTransfer:
-        if t.FromUserID == 0 || t.ToUserID == 0 {
-            return errors.New("both from_user_id and to_user_id are required for transfers")
-        }
-    default:
-        return errors.New("invalid transaction type")
+        case TransactionTypeCredit:
+            if t.ToUserID == 0 {
+                return errors.New("to_user_id is required for credit transactions")
+            }
+        case TransactionTypeDebit:
+            if t.FromUserID == 0 {
+                return errors.New("from_user_id is required for debit transactions")
+            }
+        case TransactionTypeTransfer:
+            if t.FromUserID == 0 || t.ToUserID == 0 {
+                return errors.New("both from_user_id and to_user_id are required for transfers")
+            }
+        default:
+            return errors.New("invalid transaction type")
     }
 
     if t.Amount <= 0 {

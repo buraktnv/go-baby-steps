@@ -20,6 +20,7 @@ func NewAuditLogger(repo repository.AuditLogRepository) *AuditLogger {
 
 func (l *AuditLogger) LogAction(ctx context.Context, entityType string, entityID uint, action string, changes interface{}) error {
     changesJSON, err := json.Marshal(changes)
+
     if err != nil {
         return err
     }

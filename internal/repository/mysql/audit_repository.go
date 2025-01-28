@@ -27,6 +27,7 @@ func (r *AuditLogRepository) Create(ctx context.Context, log *models.AuditLog) e
         log.Changes,
         log.CreatedAt,
     )
+
     return err
 }
 
@@ -37,15 +38,20 @@ func (r *AuditLogRepository) GetByEntityID(ctx context.Context, entityType strin
         WHERE entity_type = ? AND entity_id = ?
         ORDER BY created_at DESC
     `
+
     rows, err := r.db.QueryContext(ctx, query, entityType, entityID)
+
     if err != nil {
         return nil, err
     }
+
     defer rows.Close()
 
     var logs []*models.AuditLog
+
     for rows.Next() {
         log := &models.AuditLog{}
+
         err := rows.Scan(
             &log.EntityType,
             &log.EntityID,
@@ -53,10 +59,13 @@ func (r *AuditLogRepository) GetByEntityID(ctx context.Context, entityType strin
             &log.Changes,
             &log.CreatedAt,
         )
+
         if err != nil {
             return nil, err
         }
+
         logs = append(logs, log)
     }
+    
     return logs, nil
 } 

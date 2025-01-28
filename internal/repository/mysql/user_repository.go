@@ -5,6 +5,7 @@ import (
     "database/sql"
     "financial-service/internal/models"
     "financial-service/internal/repository"
+    "github.com/rs/zerolog/log"
 )
 
 type UserRepository struct {
@@ -56,21 +57,26 @@ func (r *UserRepository) GetByID(ctx context.Context, id uint) (*models.User, er
         &user.CreatedAt,
         &user.UpdatedAt,
     )
+
     if err == sql.ErrNoRows {
         return nil, repository.ErrNotFound
     }
+
     if err != nil {
         return nil, err
     }
+
     return user, nil
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
     user := &models.User{}
+
     query := `
         SELECT id, username, email, password_hash, role, created_at, updated_at
         FROM users WHERE email = ?
     `
+
     err := r.db.QueryRowContext(ctx, query, email).Scan(
         &user.ID,
         &user.Username,
@@ -80,12 +86,15 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
         &user.CreatedAt,
         &user.UpdatedAt,
     )
+
     if err == sql.ErrNoRows {
         return nil, repository.ErrNotFound
     }
+
     if err != nil {
         return nil, err
     }
+
     return user, nil
 }
 
@@ -103,16 +112,22 @@ func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
         user.UpdatedAt,
         user.ID,
     )
+
     if err != nil {
         return err
     }
 
     rows, err := result.RowsAffected()
+
+    log.Printf("Rows affected: %d", rows)
+
     if err != nil {
         return err
     }
+
     if rows == 0 {
         return repository.ErrNotFound
     }
+
     return nil
 } 

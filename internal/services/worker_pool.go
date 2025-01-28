@@ -37,6 +37,7 @@ func NewWorkerPool(numWorkers int, ctx context.Context, txRepo repository.Transa
     if ctx == nil {
         ctx = context.Background()
     }
+
     ctx, cancel := context.WithCancel(ctx)
 
     return &WorkerPool{
@@ -52,6 +53,7 @@ func NewWorkerPool(numWorkers int, ctx context.Context, txRepo repository.Transa
 
 func (wp *WorkerPool) Start() {
     wp.wg.Add(wp.numWorkers)
+    
     for i := 0; i < wp.numWorkers; i++ {
         go wp.worker()
     }
@@ -65,12 +67,12 @@ func (wp *WorkerPool) Stop() {
 
 func (wp *WorkerPool) Submit(task *Task) error {
     select {
-    case wp.taskQueue <- task:
-        return nil
-    case <-wp.ctx.Done():
-        return errors.New("worker pool is stopped")
-    default:
-        return errors.New("task queue is full")
+        case wp.taskQueue <- task:
+            return nil
+        case <-wp.ctx.Done():
+            return errors.New("worker pool is stopped")
+        default:
+            return errors.New("task queue is full")
     }
 }
 
@@ -79,102 +81,112 @@ func (wp *WorkerPool) worker() {
 
     for {
         select {
-        case <-wp.ctx.Done():
-            return
-        case task, ok := <-wp.taskQueue:
-            if !ok {
+            case <-wp.ctx.Done():
                 return
-            }
-            err := wp.processTransaction(task.Transaction)
-            atomic.AddInt64(&wp.stats.ProcessedCount, 1)
-            if err != nil {
-                atomic.AddInt64(&wp.stats.ErrorCount, 1)
-            } else {
-                atomic.AddInt64(&wp.stats.SuccessCount, 1)
-            }
-            task.ResultChan <- err
+            case task, ok := <-wp.taskQueue:
+                if !ok {
+                    return
+                }
+
+                err := wp.processTransaction(task.Transaction)
+                atomic.AddInt64(&wp.stats.ProcessedCount, 1)
+
+                if err != nil {
+                    atomic.AddInt64(&wp.stats.ErrorCount, 1)
+                } else {
+                    atomic.AddInt64(&wp.stats.SuccessCount, 1)
+                }
+
+                task.ResultChan <- err
         }
     }
 }
 
 func (wp *WorkerPool) processTransaction(tx *models.Transaction) error {
     ctx, cancel := context.WithTimeout(wp.ctx, 5*time.Second)
+
     defer cancel()
 
     switch tx.Type {
-    case models.TransactionTypeTransfer:
-        // Debit from source account
-        fromBalance, err := wp.balanceRepo.GetBalance(ctx, tx.FromUserID)
-        if err != nil {
-            return fmt.Errorf("failed to get source balance: %w", err)
-        }
-        
-        if fromBalance.Amount < tx.Amount {
-            return errors.New("insufficient funds")
-        }
-        
-        fromBalance.Amount -= tx.Amount
-        if err := wp.balanceRepo.UpdateBalance(ctx, fromBalance); err != nil {
-            return fmt.Errorf("failed to update source balance: %w", err)
-        }
+        case models.TransactionTypeTransfer:
+            // Debit from source account
+            fromBalance, err := wp.balanceRepo.GetBalance(ctx, tx.FromUserID)
 
-        // Credit to destination account
-        toBalance, err := wp.balanceRepo.GetBalance(ctx, tx.ToUserID)
-        if err != nil {
-            if err == repository.ErrNotFound {
-                // Create new balance if it doesn't exist
-                toBalance = &models.Balance{
-                    UserID: tx.ToUserID,
-                    Amount: 0,
-                }
-                if err := wp.balanceRepo.CreateBalance(ctx, toBalance); err != nil {
-                    return fmt.Errorf("failed to create destination balance: %w", err)
-                }
-            } else {
-                return fmt.Errorf("failed to get destination balance: %w", err)
+            if err != nil {
+                return fmt.Errorf("failed to get source balance: %w", err)
             }
-        }
+            
+            if fromBalance.Amount < tx.Amount {
+                return errors.New("insufficient funds")
+            }
+            
+            fromBalance.Amount -= tx.Amount
 
-        toBalance.Amount += tx.Amount
-        if err := wp.balanceRepo.UpdateBalance(ctx, toBalance); err != nil {
-            return fmt.Errorf("failed to update destination balance: %w", err)
-        }
+            if err := wp.balanceRepo.UpdateBalance(ctx, fromBalance); err != nil {
+                return fmt.Errorf("failed to update source balance: %w", err)
+            }
 
-    case models.TransactionTypeCredit:
-        balance, err := wp.balanceRepo.GetBalance(ctx, tx.ToUserID)
-        if err != nil {
-            if err == repository.ErrNotFound {
-                balance = &models.Balance{
-                    UserID: tx.ToUserID,
-                    Amount: 0,
+            // Credit to destination account
+            toBalance, err := wp.balanceRepo.GetBalance(ctx, tx.ToUserID)
+            if err != nil {
+                if err == repository.ErrNotFound {
+                    // Create new balance if it doesn't exist
+                    toBalance = &models.Balance{
+                        UserID: tx.ToUserID,
+                        Amount: 0,
+                    }
+                    if err := wp.balanceRepo.CreateBalance(ctx, toBalance); err != nil {
+                        return fmt.Errorf("failed to create destination balance: %w", err)
+                    }
+                } else {
+                    return fmt.Errorf("failed to get destination balance: %w", err)
                 }
-                if err := wp.balanceRepo.CreateBalance(ctx, balance); err != nil {
-                    return fmt.Errorf("failed to create balance: %w", err)
+            }
+
+            toBalance.Amount += tx.Amount
+            if err := wp.balanceRepo.UpdateBalance(ctx, toBalance); err != nil {
+                return fmt.Errorf("failed to update destination balance: %w", err)
+            }
+
+        case models.TransactionTypeCredit:
+            balance, err := wp.balanceRepo.GetBalance(ctx, tx.ToUserID)
+
+            if err != nil {
+                if err == repository.ErrNotFound {
+                    balance = &models.Balance{
+                        UserID: tx.ToUserID,
+                        Amount: 0,
+                    }
+                    if err := wp.balanceRepo.CreateBalance(ctx, balance); err != nil {
+                        return fmt.Errorf("failed to create balance: %w", err)
+                    }
+                } else {
+                    return fmt.Errorf("failed to get balance: %w", err)
                 }
-            } else {
+            }
+            
+            balance.Amount += tx.Amount
+
+            if err := wp.balanceRepo.UpdateBalance(ctx, balance); err != nil {
+                return fmt.Errorf("failed to update balance: %w", err)
+            }
+
+        case models.TransactionTypeDebit:
+            balance, err := wp.balanceRepo.GetBalance(ctx, tx.FromUserID)
+
+            if err != nil {
                 return fmt.Errorf("failed to get balance: %w", err)
             }
-        }
-        
-        balance.Amount += tx.Amount
-        if err := wp.balanceRepo.UpdateBalance(ctx, balance); err != nil {
-            return fmt.Errorf("failed to update balance: %w", err)
-        }
-
-    case models.TransactionTypeDebit:
-        balance, err := wp.balanceRepo.GetBalance(ctx, tx.FromUserID)
-        if err != nil {
-            return fmt.Errorf("failed to get balance: %w", err)
-        }
-        
-        if balance.Amount < tx.Amount {
-            return errors.New("insufficient funds")
-        }
-        
-        balance.Amount -= tx.Amount
-        if err := wp.balanceRepo.UpdateBalance(ctx, balance); err != nil {
-            return fmt.Errorf("failed to update balance: %w", err)
-        }
+            
+            if balance.Amount < tx.Amount {
+                return errors.New("insufficient funds")
+            }
+            
+            balance.Amount -= tx.Amount
+            
+            if err := wp.balanceRepo.UpdateBalance(ctx, balance); err != nil {
+                return fmt.Errorf("failed to update balance: %w", err)
+            }
     }
 
     // Update transaction status
